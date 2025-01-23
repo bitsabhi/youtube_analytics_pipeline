@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  api:
+    build: deployment
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=redis
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/credentials.json
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - analytics-network
+
+  stream-processor:
+    build: deployment
+    command: python -m src.processing.stream_processor
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=redis
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/credentials.json
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - analytics-network
+
+  batch-processor:
+    build: deployment
+    command: python -m src.processing.batch_processor
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=redis
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/credentials.json
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - analytics-network
+
+  redis:
+    image: redis:6-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - analytics-network
+
+  monitoring:
+    build: deployment
+    command: python scripts/monitor.py
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=redis
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/config/credentials.json
+    depends_on:
+      - redis
+      - api
+    restart: unless-stopped
+    networks:
+      - analytics-network
+
+volumes:
+  redis-data:
+
+networks:
+  analytics-network:
+    driver: bridge

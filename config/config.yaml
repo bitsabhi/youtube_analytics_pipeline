@@ -1,0 +1,52 @@
+# Google Cloud Project Settings
+project:
+  id: "your-project-id"
+  region: "us-central1"
+  zone: "us-central1-a"
+
+# PubSub Settings
+pubsub:
+  topic_name: "youtube-events"
+  subscription_name: "youtube-analytics-sub"
+  message_retention_duration: "7d"
+  ack_deadline_seconds: 60
+
+# BigQuery Settings
+bigquery:
+  dataset_id: "youtube_analytics"
+  tables:
+    events: "raw_events"
+    aggregated: "hourly_metrics"
+  partition_field: "event_timestamp"
+  clustering_fields: ["video_id", "event_type"]
+
+# Redis Settings
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  key_prefix: "yt:"
+  ttl_seconds: 3600
+
+# Processing Settings
+processing:
+  window_size_seconds: 300  # 5 minutes
+  batch_size: 1000
+  max_retries: 3
+  buffer_size_mb: 100
+
+# API Settings
+api:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  timeout_seconds: 30
+
+# Monitoring
+monitoring:
+  enable_logging: true
+  log_level: "INFO"
+  metrics_export_interval_seconds: 60
+  alert_threshold:
+    latency_ms: 1000
+    error_rate_percent: 1.0

@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: youtube-analytics-config
+data:
+  config.yaml: |
+    project:
+      id: "your-project-id"
+      region: "us-central1"
+    # Rest of your config.yaml content...
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: analytics-api
+  template:
+    metadata:
+      labels:
+        app: analytics-api
+    spec:
+      containers:
+      - name: api-server
+        image: gcr.io/your-project/analytics-api:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "200m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+        env:
+        - name: REDIS_HOST
+          value: redis-service
+      volumes:
+      - name: config-volume
+        configMap:
+          name: youtube-analytics-config
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stream-processor
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: stream-processor
+  template:
+    metadata:
+      labels:
+        app: stream-processor
+    spec:
+      containers:
+      - name: processor
+        image: gcr.io/your-project/stream-processor:latest
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: youtube-analytics-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-api-service
+spec:
+  selector:
+    app: analytics-api
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: LoadBalancer
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: analytics-api-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: analytics-api
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: analytics
+spec:
+  selector:
+    matchLabels:
+      app: analytics-api
+  endpoints:
